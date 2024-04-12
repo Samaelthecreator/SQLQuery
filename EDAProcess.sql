@@ -9,7 +9,30 @@ SELECT COUNT(*) AS num_columnas FROM INFORMATION_SCHEMA.COLUMNS
 WHERE TABLE_NAME = 'marzo2024';
 
 --Tipos de datos de cada columna
-SELECT paciente, data_type, column_name FROM marzo2024, INFORMATION_SCHEMA.COLUMNS;
+DO $$
+DECLARE 
+    tipo_dato VARCHAR;
+    nombre_columna VARCHAR;
+    columnas_cursor CURSOR FOR
+        SELECT column_name, data_type 
+        FROM INFORMATION_SCHEMA.COLUMNS
+        WHERE TABLE_NAME = 'marzo2024';
+    columna_rec RECORD;
+BEGIN
+    OPEN columnas_cursor;
+    LOOP
+        FETCH columnas_cursor INTO columna_rec;
+        EXIT WHEN NOT FOUND;
+        
+        nombre_columna := columna_rec.column_name;
+        tipo_dato := columna_rec.data_type;
+        
+        RAISE NOTICE 'Columna: %, Tipo de dato: %', nombre_columna, tipo_dato;
+    END LOOP;
+    CLOSE columnas_cursor;
+END;
+$$;
+
 -------------
 --Existen Primary & Foreign Key?
 
