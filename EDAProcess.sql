@@ -2,13 +2,29 @@
 --La tabla en este contexto es: marzo2024
 SELECT * FROM marzo2024
 							--Dimension del dataframe
---numero de registros en la tabla;
-SELECT COUNT(*) AS num_registros FROM marzo2024; 
---numero de campos (columnas) en la tabla;
-SELECT COUNT(*) AS num_columnas FROM INFORMATION_SCHEMA.COLUMNS
-WHERE TABLE_NAME = 'marzo2024';
+SELECT 
+	(SELECT COUNT(*) FROM marzo2024 m) AS num_registros, 
+	(SELECT COUNT(*) FROM INFORMATION_SCHEMA.COLUMNS WHERE TABLE_NAME = 'marzo2024') AS num_columnas;
+	
+							--Metadata de los objetos:
+	/* INFORMATION_SCHEMA:
+	Es un esquema el cual muestra información sobre los objetos de las bases de datos (tablas, coolumnas, llaves primarias y foraneas).
+	Cumple con los estandares NASI SQL (portabilidad y compatibilidad.)
+	-Las vistas son los objetos a los cuales consultar, como ejemplom estan:
+			TABLES , COLUMNS , CONSTRAINTS, KEY_COLUMN_USAGE etc.
+	*/
+SELECT * FROM INFORMATION_SCHEMA.TABLES,INFORMATION_SCHEMA.KEY_COLUMN_USAGE;
+	/* pg_catalog:
+	Este esquema es unicamente de PostgreSQL y almacena informacion detallada sobre objetos internos de la base de datos,
+	como catálogos de sistema, estadísitcas, indices, roles, etc.
+	Guarda de forma detallada la implementación de las bases dentro de Postgre, como ejemplos estan: 
+		pg_indexes,pg_roles etc.
+	*/	
+	
+SELECT * FROM  pg_indexes, pg_roles
 
---Tipos de datos de cada columna
+					--Tipos de datos de cada columna
+
 DO $$
 DECLARE 
     tipo_dato VARCHAR;
@@ -32,18 +48,12 @@ BEGIN
     CLOSE columnas_cursor;
 END;
 $$;
-
--------------
---Existen Primary & Foreign Key?
-
-
-------------- Espacios en blanco --------------
+					---Espacios en blanco
 --para un campo
 SELECT COUNT(folio), folio AS folio_null_values FROM marzo2024
 WHERE folio IS NULL
 GROUP BY folio;
-
---todos los campos
+--Todos los campos
 
 DO $$
 	DECLARE
@@ -58,9 +68,14 @@ BEGIN
 	LOOP 
 		EXECUTE 'SELECT COUNT (*) FROM marzo2024 WHERE ' || columna_actual || ' IS NULL'
 		INTO valores_nulos;
-	
-		raise notice 'columna: % , valores nulos: %', columna_actual, valores_nulos;
+			IF valores_nulos !=0 THEN
+				raise notice 'columna: % , valores nulos: %', columna_actual, valores_nulos;
+			ELSE
+				
+			END IF;
 	END LOOP;
 	
 END;
-$$;		--Podemos eficientizar utilizando un condicional para que muestre unicamente los campos que SI tienen valores nulos
+$$;	
+
+				--Análisis cuántitativos & estadistica general
