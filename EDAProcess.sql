@@ -79,3 +79,72 @@ END;
 $$;	
 
 				--Análisis cuántitativos & estadistica general
+
+-- Si la columna es tipo intero, flotante o cuántitativa, calculamos las medidas de tendencia central comenzando por:
+/*máximo valor, minimimo valor, media, moda y promedio
+	despues calculamos: varianza, desviación estándar.
+	
+*/
+DO $$
+	DECLARE 
+	n_column VARCHAR;
+	column_type VARCHAR;
+	cursor_var CURSOR FOR
+		SELECT column_name,data_type FROM INFORMATION_SCHEMA.COLUMNS
+		WHERE TABLE_NAME = 'marzo2024';
+	rec_var RECORD;
+
+BEGIN
+		OPEN cursor_var;
+		LOOP
+			FETCH cursor_var INTO rec_var;
+			EXIT WHEN NOT FOUND;
+			
+			n_column = rec_var.column_name;
+			column_type = rec_var.data_type;
+			
+			IF column_type = 'integer' OR column_type = 'numeric' OR column_type = 'bigint' THEN
+				--raise notice 'la columna a calcular los valores centrales son; %', n_column;
+				WITH ranges AS (SELECT MAX(peso) AS max_kg, MIN(peso) AS min_kg FROM marzo2024),			--rangos
+	   			 average AS (SELECT AVG(peso) AS Promedio FROM marzo2024),				--promedios		
+				 median AS (SELECT PERCENTILE_CONT(0.5) WITHIN GROUP (ORDER BY peso) AS median FROM marzo2024),	--mediana
+	  			 trend AS (SELECT peso, COUNT(peso) AS contador FROM marzo2024 
+						   GROUP BY peso) 
+	   			SELECT peso, max_kg,min_kg, median, MAX(contador) AS quantity FROM ranges, median, trend
+					
+				GROUP BY peso,max_kg, min_kg, median
+				ORDER BY quantity DESC
+	   			LIMIT 5;
+			
+			
+			
+			ELSE
+			
+			END IF;
+		END LOOP;
+END
+$$;
+
+--Variables centrales
+
+SELECT( SELECT MAX(peso) AS max_kg, MIN(peso) AS min_kg FROM marzo2024 			--rangos
+	   	SELECT AVG(peso) AS Promedio FROM marzo2024					--promedios		
+		SELECT PERCENTILE_CONT(0.5) WITHIN GROUP (ORDER BY peso) AS mediana FROM marzo2024;	--mediana
+	   WITH moda AS (
+	   		SELECT peso, COUNT(peso) AS contador FROM marzo2024 
+			GROUP BY peso) 
+	   SELECT peso, MAX(contador) AS quantity FROM moda GROUP BY peso 
+	   ORDER BY quantity DESC
+	   LIMIT 1;
+	   
+	  
+	  ) 
+	
+	
+		
+	
+	
+				--Gráficas de los datos cuántitativos
+				
+				
+				--análisis de variables de tiempo en caso de que existan
