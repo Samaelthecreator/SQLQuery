@@ -85,44 +85,101 @@ $$;
 	despues calculamos: varianza, desviación estándar.
 	
 */
-DO $$
-	DECLARE 
-	n_column VARCHAR;
-	column_type VARCHAR;
-	cursor_var CURSOR FOR
-		SELECT column_name,data_type FROM INFORMATION_SCHEMA.COLUMNS
-		WHERE TABLE_NAME = 'marzo2024';
-	rec_var RECORD;
+--Primeramente creamos u bloque que me guarde en una variable las columnas que son tipo enteros.
 
+DO $$
+DECLARE
+    metadatos CURSOR FOR 
+        SELECT column_name, data_type FROM INFORMATION_SCHEMA.COLUMNS
+        WHERE TABLE_NAME = 'marzo2024';
+    columnas RECORD;
+    tipo_datos VARCHAR;
+    col VARCHAR;
+    columnas_entero VARCHAR[] := ARRAY[]::VARCHAR[];
+    consulta_dinamica TEXT;
+BEGIN 
+    OPEN metadatos;
+    LOOP
+        FETCH metadatos INTO columnas;
+        EXIT WHEN NOT FOUND;
+        
+        tipo_datos = columnas.data_type;
+        col = columnas.column_name;
+        
+        IF tipo_datos = 'integer' THEN
+            columnas_entero := columnas_entero || col;
+        END IF;
+    END LOOP;
+
+    CLOSE metadatos;
+
+    -- Construir la consulta dinámica para obtener los datos de las columnas tipo entero
+    consulta_dinamica := 'CREATE TEMP TABLE resultado_temp AS SELECT ' || array_to_string(columnas_entero, ', ') || ' FROM marzo2024';
+    
+    -- Ejecutar la consulta dinámica
+    EXECUTE consulta_dinamica;
+
+END;
+$$;
+
+SELECT * FROM resultado_temp
+--la tabla temporal se borra una vez ejecutando otra transacción
+--La tabla temporal es resultado_temp
+DO $$
+DECLARE
+    headers CURSOR FOR
+        SELECT column_name FROM information_schema.columns
+        WHERE table_name = 'resultado_temp';
+    encabezados RECORD;
+    querie TEXT;
+	maximo INT;
+	minimo INT;
+	promedio INT;
+	mediana INT;
+	cantidad INT;
 BEGIN
-		OPEN cursor_var;
-		LOOP
-			FETCH cursor_var INTO rec_var;
-			EXIT WHEN NOT FOUND;
-			
-			n_column = rec_var.column_name;
-			column_type = rec_var.data_type;
-			
-			IF column_type = 'integer' OR column_type = 'numeric' OR column_type = 'bigint' THEN
-				--raise notice 'la columna a calcular los valores centrales son; %', n_column;
-				WITH ranges AS (SELECT MAX(peso) AS max_kg, MIN(peso) AS min_kg FROM marzo2024),			--rangos
-	   			 average AS (SELECT AVG(peso) AS Promedio FROM marzo2024),				--promedios		
-				 median AS (SELECT PERCENTILE_CONT(0.5) WITHIN GROUP (ORDER BY peso) AS median FROM marzo2024),	--mediana
-	  			 trend AS (SELECT peso, COUNT(peso) AS contador FROM marzo2024 
-						   GROUP BY peso) 
-	   			SELECT peso, max_kg,min_kg, median, MAX(contador) AS quantity FROM ranges, median, trend
-					
-				GROUP BY peso,max_kg, min_kg, median
-				ORDER BY quantity DESC
-	   			LIMIT 5;
-			
-			
-			
-			ELSE
-			
-			END IF;
-		END LOOP;
-END
+    OPEN headers;
+    LOOP
+        FETCH headers INTO encabezados;
+        EXIT WHEN NOT FOUND;
+        
+        -- Construir la consulta dinámica para calcular las medidas estadísticas
+        querie := 'WITH ranges AS (
+                        SELECT MAX(' || encabezados.column_name || ') AS max_,
+                               MIN(' || encabezados.column_name || ') AS min_
+                        FROM resultado_temp
+						GROUP BY '|| encabezados.column_name ||'
+                   ),
+                   average AS (
+                        SELECT AVG(' || encabezados.column_name || ') AS promedio
+                        FROM resultado_temp
+						GROUP BY '|| encabezados.column_name ||'
+                   ),
+                   median AS (
+                        SELECT PERCENTILE_CONT(0.5) WITHIN GROUP (ORDER BY ' || encabezados.column_name || ') AS mediana
+                        FROM resultado_temp
+						GROUP BY '|| encabezados.column_name ||'
+                   ),
+                   trend AS (
+                        SELECT ' || encabezados.column_name || ' AS columna,
+                               COUNT(' || encabezados.column_name || ') AS contador
+                        FROM resultado_temp
+                        GROUP BY ' || encabezados.column_name || '
+                   )
+                   SELECT ranges.max_ AS maximo, ranges.min_ AS minimo,
+                          average.promedio AS promedio, median.mediana AS mediana,
+                          MAX(trend.contador) AS cantidad
+                   FROM ranges, average, median, trend';
+
+        -- Ejecutar la consulta dinámica
+        EXECUTE querie INTO maximo, minimo, promedio, mediana, cantidad;
+        
+        -- Realizar operaciones o mostrar resultados según necesites
+        RAISE NOTICE 'Para la columna %: Maximo: %, Minimo: %, Promedio: %, Mediana: %, Cantidad: %',
+                     encabezados.column_name, maximo, minimo, promedio, mediana, cantidad;
+    END LOOP;
+    CLOSE headers;
+END;
 $$;
 
 --Variables centrales
