@@ -1,4 +1,10 @@
---Realizaremos una query general para el proceso de exploración, previo a la transformación.
+
+	
+	
+		
+	
+	
+				--Realizaremos una query general para el proceso de exploración, previo a la transformación.
 --La tabla en este contexto es: marzo2024
 SELECT * FROM marzo2024
 							--Dimension del dataframe
@@ -121,10 +127,10 @@ BEGIN
 
 END;
 $$;
-
-SELECT * FROM resultado_temp
 --la tabla temporal se borra una vez ejecutando otra transacción
 --La tabla temporal es resultado_temp
+	---Calculamos las medias estadísticas para las columnas enteras;
+	
 DO $$
 DECLARE
     headers CURSOR FOR
@@ -146,30 +152,28 @@ BEGIN
         -- Construir la consulta dinámica para calcular las medidas estadísticas
         querie := 'WITH ranges AS (
                         SELECT MAX(' || encabezados.column_name || ') AS max_,
-                               MIN(' || encabezados.column_name || ') AS min_
+                               MIN(' || encabezados.column_name || ') AS min_			--Bloque independiente correcto
                         FROM resultado_temp
-						GROUP BY '|| encabezados.column_name ||'
                    ),
                    average AS (
-                        SELECT AVG(' || encabezados.column_name || ') AS promedio
+                        SELECT AVG(' || encabezados.column_name || ') AS promedio		--Bloque independiente correcto
                         FROM resultado_temp
-						GROUP BY '|| encabezados.column_name ||'
                    ),
                    median AS (
                         SELECT PERCENTILE_CONT(0.5) WITHIN GROUP (ORDER BY ' || encabezados.column_name || ') AS mediana
-                        FROM resultado_temp
-						GROUP BY '|| encabezados.column_name ||'
+                        FROM resultado_temp					--Bloque independiente correcto
                    ),
                    trend AS (
                         SELECT ' || encabezados.column_name || ' AS columna,
-                               COUNT(' || encabezados.column_name || ') AS contador
-                        FROM resultado_temp
+                               COUNT(' || encabezados.column_name || ') AS contador		--Bloque independiente correcto
+                        FROM resultado_temp												--se repiten valores máximos
                         GROUP BY ' || encabezados.column_name || '
                    )
                    SELECT ranges.max_ AS maximo, ranges.min_ AS minimo,
                           average.promedio AS promedio, median.mediana AS mediana,
                           MAX(trend.contador) AS cantidad
-                   FROM ranges, average, median, trend';
+                   FROM ranges, average, median, trend
+				   GROUP BY maximo, minimo, promedio, mediana;';
 
         -- Ejecutar la consulta dinámica
         EXECUTE querie INTO maximo, minimo, promedio, mediana, cantidad;
@@ -180,7 +184,7 @@ BEGIN
     END LOOP;
     CLOSE headers;
 END;
-$$;
+$$; --Se optimizaria más en ves de obtener la información en raise notice, en una tabla temporal.
 
 --Variables centrales
 
@@ -193,15 +197,4 @@ SELECT( SELECT MAX(peso) AS max_kg, MIN(peso) AS min_kg FROM marzo2024 			--rang
 	   SELECT peso, MAX(contador) AS quantity FROM moda GROUP BY peso 
 	   ORDER BY quantity DESC
 	   LIMIT 1;
-	   
-	  
-	  ) 
-	
-	
-		
-	
-	
-				--Gráficas de los datos cuántitativos
-				
-				
-				--análisis de variables de tiempo en caso de que existan
+	   )
